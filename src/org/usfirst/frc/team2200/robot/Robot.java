@@ -31,6 +31,7 @@ public class Robot extends SampleRobot {
 	RobotDrive myRobot = new RobotDrive(frontLeftDriveMotor, frontRightDriveMotor);
 	
 	DoubleSolenoid gearSolenoid = new DoubleSolenoid(PinsClass.gearSola,PinsClass.gearSolb);
+	DoubleSolenoid intakeSolenoid = new DoubleSolenoid(PinsClass.intakeSola,PinsClass.intakeSolb);
 	
 	Encoder leftDriveEnc = new Encoder(PinsClass.driveEncoderLeftA, PinsClass.driveEncoderLeftb);
 	Encoder rightDriveEnc = new Encoder(PinsClass.driveEncoderRightA, PinsClass.driveEncoderRightb);
@@ -38,7 +39,6 @@ public class Robot extends SampleRobot {
 	Joystick driverController = new Joystick(0);
 	Joystick opController = new Joystick(1);
 	
-	double setPoint;
 	double deadZone = 0.25;
 	
 	final String driveForward = "drive forward";
@@ -96,46 +96,50 @@ public class Robot extends SampleRobot {
 	}
 	
 	public void camera(){
-		
+		Robot2 two = new Robot2(myRobot);
+		two.followCamera();
 	}
 	
-	public void driveDistance(){
+	public void driveDistance(double dist){
 		double leftPGain;
 		double rightPGain;
-		if(leftDriveEnc.getDistance() <= setPoint*0.95){
-			leftPGain = (1*((setPoint-leftDriveEnc.getDistance())/setPoint)*SmartDashboard.getNumber("left Drive P value", 0.25));
-			if(leftPGain <= deadZone){
-				frontLeftDriveMotor.set(deadZone);
+		double setPoint = dist;
+		while(leftDriveEnc.getDistance() <= setPoint*0.95 && rightDriveEnc.getDistance() <= setPoint*0.95){
+			if(leftDriveEnc.getDistance() <= setPoint*0.95){
+				leftPGain = (1*((setPoint-leftDriveEnc.getDistance())/setPoint)*SmartDashboard.getNumber("left Drive P value", 0.25));
+
+				if(leftPGain <= deadZone){
+					frontLeftDriveMotor.set(deadZone);
+				}
+				else{
+					frontLeftDriveMotor.set(leftPGain);
+				}
 			}
 			else{
-			frontLeftDriveMotor.set(leftPGain);
+				frontLeftDriveMotor.set(0);
 			}
-		}
-		else{
-			frontLeftDriveMotor.set(0);
-		}
-		if(rightDriveEnc.getDistance() <= setPoint*0.95){
-			rightPGain = (1*((setPoint-rightDriveEnc.getDistance())/setPoint)*SmartDashboard.getNumber("right Drive  P Value", 0.25));
-			if(rightPGain <=deadZone){
-			frontRightDriveMotor.set(-deadZone);	
-		}
+			if(rightDriveEnc.getDistance() <= setPoint*0.95){
+				rightPGain = (1*((setPoint-rightDriveEnc.getDistance())/setPoint)*SmartDashboard.getNumber("right Drive  P Value", 0.25));
+				if(rightPGain <=deadZone){
+					frontRightDriveMotor.set(-deadZone);	
+				}
+				else{
+					frontRightDriveMotor.set(-rightPGain);
+				}
+			}
 			else{
-				frontRightDriveMotor.set(-rightPGain);
-			}
+				frontRightDriveMotor.set(0);
+			}	
+			SmartDashboard.putNumber("left Error",((setPoint-leftDriveEnc.getDistance())/setPoint)*100);
+			SmartDashboard.putNumber("right Error",((setPoint-rightDriveEnc.getDistance())/setPoint)*100);
 		}
-		else{
-			frontRightDriveMotor.set(0);
-		}	
-		SmartDashboard.putNumber("left Error",((setPoint-leftDriveEnc.getDistance())/setPoint)*100);
-		SmartDashboard.putNumber("right Error",((setPoint-rightDriveEnc.getDistance())/setPoint)*100);
 	}
 	
 	
 	@Override
 	public void autonomous() {
 		if (chooser.getSelected() == driveForward){
-			setPoint = 6.85;
-			driveDistance();
+			driveDistance(6.85);
 		}
 		else if (chooser.getSelected() == camera){
 			camera();
@@ -167,12 +171,15 @@ public class Robot extends SampleRobot {
 	@Override
 	public void operatorControl() {
 		myRobot.setSafetyEnabled(false);
+		try{
 		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
 		camera.setResolution(640, 480);
+		}
+		catch(Exception e){
+			
+		}
 		while (isOperatorControl() && isEnabled()) {
-			
-			
-			
+						
 			updateSmartDashboard();
 			
 			//Drive
@@ -200,7 +207,7 @@ public class Robot extends SampleRobot {
 				intakeMotor.set(0);
 			}
 			
-			//Spin Carousel at 40% power
+			//Spin Carousel
 			if(opController.getRawButton(6)){
 				carouselMotor.set(SmartDashboard.getNumber("HopperSpeed", 0.6));
 			}
@@ -214,6 +221,14 @@ public class Robot extends SampleRobot {
 			}
 			if(opController.getPOV() == 180){
 				gearSolenoid.set(DoubleSolenoid.Value.kReverse);
+			}
+			
+			//Lock Unlock Intake 
+			if(opController.getRawButton(11)){
+				intakeSolenoid.set(DoubleSolenoid.Value.kForward);
+			}
+			if(opController.getRawButton(12)){
+				intakeSolenoid.set(DoubleSolenoid.Value.kReverse);
 			}
 			
 			Timer.delay(0.005); // wait for a motor update time
