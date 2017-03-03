@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.DigitalOutput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.Encoder;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -40,8 +41,8 @@ public class Robot extends SampleRobot {
 	Encoder rightDriveEnc = new Encoder(PinsClass.driveEncoderRightA, PinsClass.driveEncoderRightb);
 	DigitalOutput leds = new DigitalOutput(PinsClass.leds);
 	
-	Joystick driverController = new Joystick(0);
-	Joystick opController = new Joystick(1);
+	Joystick driverController = new Joystick(1);
+	Joystick opController = new Joystick(2);
 	
 	AHRS ahrs;
 	
@@ -174,18 +175,19 @@ public class Robot extends SampleRobot {
 		return diff;
 		
 	}*/
-	public void turn(){
+	public void turn(double targetAngle){
 		frontLeftDriveMotor.enableBrakeMode(true);
 		frontRightDriveMotor.enableBrakeMode(true);
 		rearLeftDriveMotor.enableBrakeMode(true);
 		rearRightDriveMotor.enableBrakeMode(true);
-		double targetAngle = 45;
-		double currentAngle = ahrs.getAngle();
+		//double targetAngle = 45;
+		double currentAngle = ahrs.getPitch();
 		while (targetAngle > currentAngle){
-			SmartDashboard.putNumber("Angle", ahrs.getAngle());
-			currentAngle = ahrs.getAngle();
+			SmartDashboard.putNumber("Angle", ahrs.getPitch());
+			currentAngle = ahrs.getPitch(); //getAngle to get Pitch
 			frontLeftDriveMotor.set(-0.3);
 			frontRightDriveMotor.set(-0.3);
+			Timer.delay(0.005);
 		}
 		frontLeftDriveMotor.set(0);
 		frontRightDriveMotor.set(0);
@@ -199,7 +201,7 @@ public class Robot extends SampleRobot {
 			rightDriveEnc.reset();
 			ahrs.reset();
 			//driveDistance(6.85);
-			turn();
+			turn(45);
 		}
 		else if (chooser.getSelected() == camera){
 			camera();
@@ -255,18 +257,18 @@ public class Robot extends SampleRobot {
 			
 			//Drive
 			if(driverController.getRawButton(5)|| forward == true){
-				myRobot.arcadeDrive(driverController.getY(), driverController.getX());
+				myRobot.arcadeDrive(driverController.getRawAxis(1), driverController.getRawAxis(1));
 				forward = true;
 			}
 			
 			//Invert drive for when you drive towards yourself
 			if(driverController.getRawButton(6) || forward == false){
-				myRobot.arcadeDrive((-(driverController.getY())), ((driverController.getX())));
+				myRobot.arcadeDrive((-(driverController.getRawAxis(1))), ((driverController.getRawAxis(1))));
 				forward = false;
 			}
 			
 			//brake mode
-			if(driverController.getRawButton(8)){
+			if(driverController.getRawAxis(3)>0){
 				frontLeftDriveMotor.enableBrakeMode(true);
 				frontRightDriveMotor.enableBrakeMode(true);
 				rearLeftDriveMotor.enableBrakeMode(true);
@@ -280,8 +282,8 @@ public class Robot extends SampleRobot {
 			}
 			
 			//Shooter / Lifter
-			if (opController.getRawButton(3)){
-				
+			if (opController.getRawButton(2)){
+				opController.setRumble(RumbleType.kLeftRumble, 1);
 				shotCounter = 0;
 				shooterOn = true;
 				shooterLifterMotor.changeControlMode(TalonControlMode.Speed);
@@ -321,16 +323,17 @@ public class Robot extends SampleRobot {
 			if (!opController.getRawButton(4) && shooterOn == false){
 				shooterLifterMotor.set(0);
 			}
-			if(opController.getRawButton(2)){
+			if(opController.getRawButton(1)){
 				shooterOn = false;
-				shooterLifterMotor.disable();	
+				shooterLifterMotor.disable();
+				opController.setRumble(RumbleType.kLeftRumble, 0);
 			}
 			
 			//Intake Forward and Backwards
-			if (opController.getRawButton(5)&& up==false){
+			if (opController.getRawButton(5)/*&& up==false*/){
 				intakeMotor.set(1);
 			}
-			else if (opController.getRawButton(7)&& up == false){
+			else if (opController.getRawAxis(2) > 0/* && up == false*/){
 				intakeMotor.set(-1);
 			}
 			else{
@@ -358,7 +361,7 @@ public class Robot extends SampleRobot {
 				
 			
 			}
-		    if(opController.getRawButton(8)){
+		    if(opController.getRawAxis(3) > 0){
 				carouselMotor.set(-0.2);
 			}
 			if(!opController.getRawButton(6) && !opController.getRawButton(8)) {
@@ -369,23 +372,25 @@ public class Robot extends SampleRobot {
 			if(opController.getPOV()==0){
 				gearSolenoid.set(DoubleSolenoid.Value.kForward);
 				up = true;
+				SmartDashboard.putBoolean("Gear Lift UP", true);
 			}
 			if(opController.getPOV() == 180){
 				gearSolenoid.set(DoubleSolenoid.Value.kReverse);
 				up = false;
+				SmartDashboard.putBoolean("Gear Lift UP", false);
 			}
 			
 			//Lock Unlock Intake 
-			if(opController.getRawButton(11)){
+			if(opController.getRawButton(9)){
 				intakeSolenoid.set(DoubleSolenoid.Value.kForward);
 			}
-			if(opController.getRawButton(12)){
+			if(opController.getRawButton(10)){
 				intakeSolenoid.set(DoubleSolenoid.Value.kReverse);
 			}
-			if(opController.getRawButton(10)){
+			if(opController.getRawButton(8)){
 				leds.set(true);
 			}
-			if(opController.getRawButton(9)){
+			if(opController.getRawButton(7)){
 				leds.set(false);
 			}
 			Timer.delay(0.005); // wait for a motor update time
