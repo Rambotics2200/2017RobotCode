@@ -36,7 +36,8 @@ public class Robot2{
 	double count1, count2;
 	double hue[], sat[], lum[];
 	DigitalOutput LED = new DigitalOutput(PinsClass.leds);
-	UsbCamera camera;
+	UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
+	
 	double leftX, rightX, centerX;
 	private RobotDrive myRobot;
 	
@@ -82,12 +83,11 @@ public class Robot2{
 		}
 		camera.setWhiteBalanceHoldCurrent();
 		camera.setExposureHoldCurrent();
-		
-		
+		camera.setResolution(640, 480);
 		
         double count[] = new double[2];
         
-        CvSink cvSink = CameraServer.getInstance().getVideo();
+        CvSink cvSink =  CameraServer.getInstance().getVideo();
         CvSource outputStream = CameraServer.getInstance().putVideo("Processed", 640, 480);
         
         Mat source = new Mat();
@@ -158,17 +158,16 @@ public class Robot2{
 			
 
 			if (centerX > 330.0) {
-				myRobot.tankDrive(-0.5, 0.5);
+				myRobot.tankDrive(-1, 0);
 			}
 			else if (centerX < 310.0) {
-				myRobot.tankDrive(0.5, -0.5);
+				myRobot.tankDrive(1, -1);
 			}
 			else {
 				myRobot.tankDrive(0.0, 0.0);
 			}
 			
-			
-			Timer.delay(0.005); // wait for a motor update time
+			Timer.delay(0.5); // wait for a motor update time
 		}
 		LED.set(false);
 		

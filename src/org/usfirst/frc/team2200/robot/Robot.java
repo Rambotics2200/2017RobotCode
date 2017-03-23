@@ -39,7 +39,7 @@ public class Robot extends SampleRobot {
 	
 	Encoder leftDriveEnc = new Encoder(PinsClass.driveEncoderLeftA, PinsClass.driveEncoderLeftb);
 	Encoder rightDriveEnc = new Encoder(PinsClass.driveEncoderRightA, PinsClass.driveEncoderRightb);
-	DigitalOutput leds = new DigitalOutput(PinsClass.leds);
+	//DigitalOutput leds = new DigitalOutput(PinsClass.leds);
 	
 	Joystick driverController = new Joystick(1);
 	Joystick opController = new Joystick(2);
@@ -54,7 +54,9 @@ public class Robot extends SampleRobot {
 	double shooterSpeed = 3270;
 	boolean disableAdjust = false;
 	final String driveForward = "drive forward";
-	final String camera = "camera";
+	final String baseLine = "baseLine";
+	final String turn = "turn";
+	final String Camera = "Camera";
 	double shotCounter = 0;
 	boolean enableShotCounter = true;
 	boolean unjam = false;
@@ -71,9 +73,13 @@ public class Robot extends SampleRobot {
 	@Override
 	public void robotInit() {
 		chooser.addDefault("driveForward", driveForward);
-		chooser.addObject("camera", camera);
+		chooser.addObject("baseLine", baseLine);
+		chooser.addObject("turn", turn);
+		chooser.addObject("Camera", Camera);
 		
 		SmartDashboard.putData("Auto modes", chooser);
+		SmartDashboard.putNumber("Left Drive Encoder Speed", leftDriveEnc.getDistance());
+		SmartDashboard.putNumber("Right Drive Encoder Speed", rightDriveEnc.getDistance());
 		
 		rearLeftDriveMotor.changeControlMode(TalonControlMode.Follower);
 		rearLeftDriveMotor.set(frontLeftDriveMotor.getDeviceID());
@@ -99,7 +105,7 @@ public class Robot extends SampleRobot {
 		slaveShooterLifterMotor.enableBrakeMode(true);
 		
 		ahrs = new AHRS(SPI.Port.kMXP);
-		gearSolenoid.set(DoubleSolenoid.Value.kReverse);
+		gearSolenoid.set(DoubleSolenoid.Value.kForward);
 		
 		shooterLifterMotor.setFeedbackDevice(FeedbackDevice.CtreMagEncoder_Relative);
 		shooterLifterMotor.reverseSensor(false);
@@ -123,13 +129,14 @@ public class Robot extends SampleRobot {
 	public void camera(){
 		Robot2 two = new Robot2(myRobot);
 		two.followCamera();
+		
 	}
 	
 	public void driveDistance(double dist){
 		double leftPGain;
 		double rightPGain;
 		double setPoint = dist;
-		while(leftDriveEnc.getDistance() <= setPoint*0.95 && rightDriveEnc.getDistance() <= setPoint*0.95){
+		while((leftDriveEnc.getDistance() <= setPoint*0.95 && rightDriveEnc.getDistance() <= setPoint*0.95)&&(isAutonomous()&&isEnabled())){
 			if(leftDriveEnc.getDistance() <= setPoint*0.95){
 				leftPGain = (1*((setPoint-leftDriveEnc.getDistance())/setPoint)*SmartDashboard.getNumber("left Drive P value", 0.25));
 
@@ -157,6 +164,8 @@ public class Robot extends SampleRobot {
 			}
 			SmartDashboard.putNumber("left drive distance", leftDriveEnc.getDistance());
 			SmartDashboard.putNumber("right drive distance", rightDriveEnc.getDistance());
+			SmartDashboard.putNumber("Left Drive Encoder Speed", leftDriveEnc.getDistance()/Timer.getMatchTime());
+			SmartDashboard.putNumber("Right Drive Encoder Speed", rightDriveEnc.getDistance()/Timer.getMatchTime());
 			SmartDashboard.putNumber("left Error",((setPoint-leftDriveEnc.getDistance())/setPoint)*100);
 			SmartDashboard.putNumber("right Error",((setPoint-rightDriveEnc.getDistance())/setPoint)*100);
 		}
@@ -169,7 +178,7 @@ public class Robot extends SampleRobot {
 		rearRightDriveMotor.enableBrakeMode(true);
 		//double targetAngle = 45;
 		double currentAngle = ahrs.getPitch();
-		while (targetAngle > currentAngle){
+		while ((targetAngle > currentAngle)&&(isAutonomous()&&isEnabled())){
 			SmartDashboard.putNumber("Angle", ahrs.getPitch());
 			currentAngle = ahrs.getPitch(); //getAngle to get Pitch
 			frontLeftDriveMotor.set(-0.3);
@@ -186,11 +195,17 @@ public class Robot extends SampleRobot {
 		if (chooser.getSelected() == driveForward){
 			leftDriveEnc.reset();
 			rightDriveEnc.reset();
-			ahrs.reset();
-			driveDistance(7.2);
-			//turn(45);.
+			driveDistance(8.1);
+			
 		}
-		else if (chooser.getSelected() == camera){
+		else if (chooser.getSelected() == baseLine){
+			driveDistance(8.5);
+		}
+		else if (chooser.getSelected() == turn){
+			ahrs.reset();
+			turn(45);
+		}
+		else if (chooser.getSelected() == Camera){
 			camera();
 		}
 	}
@@ -219,6 +234,7 @@ public class Robot extends SampleRobot {
 		SmartDashboard.putNumber("Shooter PID Error", i);	
 		SmartDashboard.putNumber("carousel current", carouselMotor.getOutputCurrent());	
 		SmartDashboard.putNumber("Shot Counter", shotCounter);
+		
 	/*		if(driverController.getRawButton(10)){
 			shooterLifterMotor.setP(SmartDashboard.getNumber("ShooterP",0.09));
 			shooterLifterMotor.setI(SmartDashboard.getNumber("ShooterI",0.0001));
@@ -230,13 +246,9 @@ public class Robot extends SampleRobot {
 	@Override
 	public void operatorControl() {
 		myRobot.setSafetyEnabled(false);
-		try{
 		UsbCamera camera = CameraServer.getInstance().startAutomaticCapture();
 		camera.setResolution(320, 240);
-		}
-		catch(Exception e){
-			
-		}
+		
 		SmartDashboard.putBoolean("Gear Lift Up", true);
 		while (isOperatorControl() && isEnabled()) {
 			
@@ -279,14 +291,14 @@ public class Robot extends SampleRobot {
 				shooterLifterMotor.setD(5);
 				shooterLifterMotor.changeControlMode(TalonControlMode.Speed);
 				shooterLifterMotor.enable();
-				shooterLifterMotor.set(shooterSpeed);
+				//shooterLifterMotor.set(shooterSpeed);
 				
 			}			
 			if (opController.getPOV()==270){
 				if(disableAdjust == false)
 				{
 					shooterSpeed = shooterSpeed-10;
-					shooterLifterMotor.set(shooterSpeed);
+					//shooterLifterMotor.set(shooterSpeed);
 					disableAdjust = true;
 				}
 			}
@@ -294,7 +306,7 @@ public class Robot extends SampleRobot {
 				if(disableAdjust == false)
 				{
 					shooterSpeed = shooterSpeed+10;
-					shooterLifterMotor.set(shooterSpeed);
+					//shooterLifterMotor.set(shooterSpeed);
 					disableAdjust = true;
 				}
 			}
@@ -302,15 +314,15 @@ public class Robot extends SampleRobot {
 				disableAdjust = false;
 			}
 
-			if ((opController.getRawAxis(5) > 0 && shooterOn == false) || (opController.getRawAxis(5) < 0 && shooterOn == false)){
+			if ((opController.getRawAxis(5) < 0 && shooterOn == false)){
 				shooterLifterMotor.setP(0);
 				shooterLifterMotor.setI(0);
 				shooterLifterMotor.setD(0);
 				shooterLifterMotor.changeControlMode(TalonControlMode.PercentVbus);
-				shooterLifterMotor.set(opController.getRawAxis(5));
+				//shooterLifterMotor.set(-opController.getRawAxis(5));
 				shooterLifterMotor.enable();
 			}
-			if (!opController.getRawButton(4) && shooterOn == false){
+			if (opController.getRawAxis(5) >= 0 && shooterOn == false){
 				shooterLifterMotor.set(0);
 			}
 			if(opController.getRawButton(1)){
@@ -334,8 +346,8 @@ public class Robot extends SampleRobot {
 			if(opController.getRawButton(6)){
 				
 					if(jam==false){
-					carouselMotor.set(0.8);
-					if(carouselMotor.getOutputCurrent()>= 14){
+					carouselMotor.set(0.6);
+					if(carouselMotor.getOutputCurrent()>= 30){
 						jam=true;
 						jamTime = Timer.getFPGATimestamp();
 					}
@@ -378,10 +390,10 @@ public class Robot extends SampleRobot {
 				intakeSolenoid.set(DoubleSolenoid.Value.kReverse);
 			}
 			if(opController.getRawButton(8)){
-				leds.set(true);
+				//leds.set(true);
 			}
 			if(opController.getRawButton(7)){
-				leds.set(false);
+				//leds.set(false);
 			}
 			Timer.delay(0.005); // wait for a motor update time
 		}
